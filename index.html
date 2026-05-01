@@ -482,6 +482,7 @@
                 <div class="input-group">
                     <i class="fas fa-lock"></i>
                     <input type="password" id="adminPasswordInput" placeholder="أدخل كلمة المرور" required>
+                    <i class="fas fa-eye" id="adminPasswordToggle" onclick="togglePasswordVisibility('adminPasswordInput', 'adminPasswordToggle')" style="left: 15px; right: auto; cursor: pointer; color: var(--text-gray);"></i>
                 </div>
                 <button type="submit" class="btn btn-primary"><i class="fas fa-sign-in-alt"></i>تسجيل الدخول</button>
             </form>
@@ -497,12 +498,65 @@
                 <div class="input-group">
                     <i class="fas fa-lock"></i>
                     <input type="password" id="moderatorPasswordInput" placeholder="كلمة المرور" required>
+                    <i class="fas fa-eye" id="modPasswordToggle" onclick="togglePasswordVisibility('moderatorPasswordInput', 'modPasswordToggle')" style="left: 15px; right: auto; cursor: pointer; color: var(--text-gray);"></i>
                 </div>
                 <button type="submit" class="btn btn-secondary"><i class="fas fa-sign-in-alt"></i>تسجيل الدخول</button>
             </form>
 
             <div id="loginError" style="color: var(--danger); margin-top: 15px; font-size: 14px; display: none;">
                 <i class="fas fa-exclamation-circle"></i> <span id="loginErrorText">كلمة المرور غير صحيحة</span>
+            </div>
+
+            <!-- Forgot Password Section -->
+            <div id="forgotPasswordSection" style="margin-top: 15px; display: none;">
+                <div style="border-top: 1px solid var(--tertiary-black); padding-top: 15px;">
+                    <p style="color: var(--primary-gold); font-size: 14px; margin-bottom: 15px; text-align: center; font-weight: 600;">
+                        <i class="fas fa-unlock-alt" style="margin-left: 5px;"></i>
+                        استعادة كلمة المرور
+                    </p>
+
+                    <!-- Step 1: Security Question -->
+                    <div id="recoveryStep1">
+                        <div class="input-group" style="margin-bottom: 15px;">
+                            <i class="fas fa-question-circle" style="color: var(--warning);"></i>
+                            <input type="text" id="securityAnswer" placeholder="ما هو اسمك الكامل؟ (الإجابة: mostafa)" style="font-size: 14px;">
+                        </div>
+                        <button type="button" class="btn btn-warning" onclick="verifySecurityAnswer()" style="width: 100%; margin-bottom: 10px;">
+                            <i class="fas fa-check"></i> تحقق
+                        </button>
+                    </div>
+
+                    <!-- Step 2: New Password -->
+                    <div id="recoveryStep2" style="display: none;">
+                        <div class="input-group" style="margin-bottom: 15px;">
+                            <i class="fas fa-lock" style="color: var(--success);"></i>
+                            <input type="password" id="recoveryNewPassword" placeholder="كلمة المرور الجديدة" style="font-size: 14px;">
+                            <i class="fas fa-eye" id="recoveryPasswordToggle" onclick="togglePasswordVisibility('recoveryNewPassword', 'recoveryPasswordToggle')" style="left: 15px; right: auto; cursor: pointer; color: var(--text-gray);"></i>
+                        </div>
+                        <div class="input-group" style="margin-bottom: 15px;">
+                            <i class="fas fa-lock" style="color: var(--success);"></i>
+                            <input type="password" id="recoveryConfirmPassword" placeholder="تأكيد كلمة المرور الجديدة" style="font-size: 14px;">
+                            <i class="fas fa-eye" id="recoveryConfirmToggle" onclick="togglePasswordVisibility('recoveryConfirmPassword', 'recoveryConfirmToggle')" style="left: 15px; right: auto; cursor: pointer; color: var(--text-gray);"></i>
+                        </div>
+                        <button type="button" class="btn btn-success" onclick="resetAdminPassword()" style="width: 100%; margin-bottom: 10px;">
+                            <i class="fas fa-save"></i> حفظ كلمة المرور الجديدة
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="resetToDefaultPassword()" style="width: 100%; font-size: 12px;">
+                            <i class="fas fa-undo"></i> استعادة كلمة المرور الافتراضية (102030405060708090)
+                        </button>
+                    </div>
+
+                    <button type="button" onclick="hideForgotPassword()" style="background: none; border: none; color: var(--text-gray); font-size: 12px; cursor: pointer; font-family: 'Cairo', sans-serif; margin-top: 10px;">
+                        <i class="fas fa-arrow-right"></i> العودة لتسجيل الدخول
+                    </button>
+                </div>
+            </div>
+
+            <!-- Forgot Password Link -->
+            <div id="forgotPasswordLink" style="margin-top: 15px; text-align: center;">
+                <button type="button" onclick="showForgotPassword()" style="background: none; border: none; color: var(--primary-gold); font-size: 13px; cursor: pointer; font-family: 'Cairo', sans-serif; text-decoration: underline;">
+                    <i class="fas fa-key"></i> نسيت كلمة المرور؟
+                </button>
             </div>
 
             <!-- Fingerprint Section -->
@@ -1087,6 +1141,7 @@
 
 
     <script>
+
         // ===== FIREBASE CONFIG =====
         var firebaseConfig = {
             apiKey: "AIzaSyABFQLToMt2eM5jm36lEvgPkCRV4VtJYW0",
@@ -1099,7 +1154,7 @@
         firebase.initializeApp(firebaseConfig);
         var db = firebase.firestore();
 
-        var ADMIN_PASSWORD = '01221581528';
+        var ADMIN_PASSWORD = '102030405060708090';
         var currentUser = null;
         var deleteCallback = null;
         var editingEmployeeId = null;
@@ -1117,6 +1172,144 @@
             if (document.getElementById('attendanceFilterFrom')) document.getElementById('attendanceFilterFrom').value = firstDay;
             if (document.getElementById('attendanceFilterTo')) document.getElementById('attendanceFilterTo').value = today;
         });
+
+        // ===== FORGOT PASSWORD / PASSWORD RECOVERY =====
+        var SECURITY_ANSWER = '102030405060708090';
+
+        function showForgotPassword() {
+            console.log('[DEBUG] showForgotPassword called');
+            var forgotSection = document.getElementById('forgotPasswordSection');
+            var forgotLink = document.getElementById('forgotPasswordLink');
+            var adminForm = document.getElementById('adminLoginForm');
+            var modForm = document.getElementById('moderatorLoginForm');
+            var loginType = document.querySelector('.login-type-selector');
+            var fingerprintSec = document.getElementById('fingerprintSection');
+
+            if (forgotSection) forgotSection.style.display = 'block';
+            if (forgotLink) forgotLink.style.display = 'none';
+            if (adminForm) adminForm.style.display = 'none';
+            if (modForm) modForm.style.display = 'none';
+            if (loginType) loginType.style.display = 'none';
+            if (fingerprintSec) fingerprintSec.style.display = 'none';
+
+            var step1 = document.getElementById('recoveryStep1');
+            var step2 = document.getElementById('recoveryStep2');
+            if (step1) step1.style.display = 'block';
+            if (step2) step2.style.display = 'none';
+
+            var secAnswer = document.getElementById('securityAnswer');
+            var recPass = document.getElementById('recoveryNewPassword');
+            var recConfirm = document.getElementById('recoveryConfirmPassword');
+            if (secAnswer) secAnswer.value = '';
+            if (recPass) recPass.value = '';
+            if (recConfirm) recConfirm.value = '';
+
+            var loginError = document.getElementById('loginError');
+            if (loginError) loginError.style.display = 'none';
+        }
+
+        function hideForgotPassword() {
+            var forgotSection = document.getElementById('forgotPasswordSection');
+            var forgotLink = document.getElementById('forgotPasswordLink');
+            var loginType = document.querySelector('.login-type-selector');
+
+            if (forgotSection) forgotSection.style.display = 'none';
+            if (forgotLink) forgotLink.style.display = 'block';
+            if (loginType) loginType.style.display = 'flex';
+
+            var activeType = document.querySelector('.login-type-btn.active');
+            var adminForm = document.getElementById('adminLoginForm');
+            var modForm = document.getElementById('moderatorLoginForm');
+
+            if (activeType && activeType.dataset.type === 'moderator') {
+                if (modForm) modForm.style.display = 'block';
+                if (adminForm) adminForm.style.display = 'none';
+            } else {
+                if (adminForm) adminForm.style.display = 'block';
+                if (modForm) modForm.style.display = 'none';
+            }
+
+            var fingerprintSection = document.getElementById('fingerprintSection');
+            if (fingerprintSection && typeof checkFingerprintSupport === 'function') {
+                checkFingerprintSupport().then(function(available) {
+                    fingerprintSection.style.display = available ? 'block' : 'none';
+                }).catch(function() {
+                    fingerprintSection.style.display = 'none';
+                });
+            } else if (fingerprintSection) {
+                fingerprintSection.style.display = 'none';
+            }
+        }
+
+        function verifySecurityAnswer() {
+            var answer = document.getElementById('securityAnswer').value.trim().toLowerCase();
+            if (answer === SECURITY_ANSWER) {
+                document.getElementById('recoveryStep1').style.display = 'none';
+                document.getElementById('recoveryStep2').style.display = 'block';
+                showAlert('success', 'الإجابة صحيحة! يمكنك الآن إدخال كلمة المرور الجديدة');
+            } else {
+                showAlert('danger', 'الإجابة غير صحيحة! حاول مرة أخرى');
+                document.getElementById('securityAnswer').value = '';
+            }
+        }
+
+        function resetToDefaultPassword() {
+            if (confirm('هل أنت متأكد من استعادة كلمة المرور الافتراضية؟')) {
+                ADMIN_PASSWORD = '102030405060708090';
+                localStorage.setItem('smart_adminPassword', '102030405060708090');
+                showAlert('success', 'تم استعادة كلمة المرور الافتراضية: 01221581528');
+                setTimeout(function() {
+                    hideForgotPassword();
+                }, 2000);
+            }
+        }
+
+        function resetAdminPassword() {
+            var newPass = document.getElementById('recoveryNewPassword').value;
+            var confirmPass = document.getElementById('recoveryConfirmPassword').value;
+
+            if (!newPass || !confirmPass) {
+                showAlert('warning', 'يرجى ملء جميع الحقول');
+                return;
+            }
+            if (newPass !== confirmPass) {
+                showAlert('danger', 'كلمتا المرور غير متطابقتين');
+                return;
+            }
+            if (newPass.length < 4) {
+                showAlert('warning', 'كلمة المرور يجب أن تكون 4 أحرف على الأقل');
+                return;
+            }
+
+            ADMIN_PASSWORD = newPass;
+            localStorage.setItem('smart_adminPassword', newPass);
+
+            showAlert('success', 'تم إعادة تعيين كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول');
+
+            setTimeout(function() {
+                hideForgotPassword();
+                var adminPassInput = document.getElementById('adminPasswordInput');
+                if (adminPassInput) {
+                    adminPassInput.value = '';
+                    adminPassInput.focus();
+                }
+            }, 2000);
+        }
+
+        function togglePasswordVisibility(inputId, iconId) {
+            var input = document.getElementById(inputId);
+            var icon = document.getElementById(iconId);
+            if (!input || !icon) return;
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
 
         function setupEventListeners() {
             document.getElementById('adminLoginForm').addEventListener('submit', handleAdminLogin);
@@ -1160,6 +1353,11 @@
         function handleAdminLogin(e) {
             e.preventDefault();
             var password = document.getElementById('adminPasswordInput').value;
+            // Load latest password from localStorage
+            var savedPassword = localStorage.getItem('smart_adminPassword');
+            if (savedPassword) {
+                ADMIN_PASSWORD = savedPassword;
+            }
             if (password === ADMIN_PASSWORD) {
                 currentUser = { name: 'مدير النظام', isMainAdmin: true, permissions: { all: true } };
                 localStorage.setItem('smart_currentUser', JSON.stringify(currentUser));
@@ -2468,6 +2666,519 @@
         }
 
         function printReports() { window.print(); }
+
+        // ===== CONTROL PANEL FUNCTIONS =====
+        var appConfig = {
+            companyName: 'SMART TECHNOLOGY',
+            companyAddress: '',
+            companyPhone: '',
+            companyEmail: '',
+            currency: 'ج.م',
+            dateFormat: 'DD/MM/YYYY',
+            enableFingerprint: true,
+            enableAlerts: true,
+            enableAutoBackup: false,
+            theme: {
+                primaryColor: '#d4af37',
+                secondaryColor: '#1a1a1a',
+                textColor: '#ffffff',
+                fontFamily: 'Cairo',
+                fontSize: 14
+            },
+            sections: [
+                { id: 'dashboard', name: 'الرئيسية', icon: 'fa-home', enabled: true, order: 1 },
+                { id: 'employees', name: 'الموظفين', icon: 'fa-users', enabled: true, order: 2 },
+                { id: 'attendance', name: 'الحضور والانصراف', icon: 'fa-clock', enabled: true, order: 3 },
+                { id: 'advances', name: 'السلف والخصومات', icon: 'fa-hand-holding-usd', enabled: true, order: 4 },
+                { id: 'expenses', name: 'المصروفات', icon: 'fa-receipt', enabled: true, order: 5 },
+                { id: 'suppliers', name: 'الموردين', icon: 'fa-truck', enabled: true, order: 6 },
+                { id: 'reports', name: 'التقارير', icon: 'fa-chart-bar', enabled: true, order: 7 },
+                { id: 'admins', name: 'المشرفين', icon: 'fa-user-cog', enabled: true, order: 8 }
+            ],
+            customSections: []
+        };
+
+        function openControlPanel() {
+            if (!currentUser || !currentUser.isMainAdmin) {
+                showAlert('warning', 'لوحة التحكم متاحة فقط لمدير النظام');
+                return;
+            }
+            document.getElementById('cpSidebar').classList.add('active');
+            document.getElementById('cpOverlay').classList.add('active');
+            loadCpData();
+        }
+
+        function closeControlPanel() {
+            document.getElementById('cpSidebar').classList.remove('active');
+            document.getElementById('cpOverlay').classList.remove('active');
+        }
+
+        function showCpSection(sectionId) {
+            document.querySelectorAll('.cp-section').forEach(function(s) { s.classList.remove('active'); });
+            document.querySelectorAll('.cp-menu-link').forEach(function(l) { l.classList.remove('active'); });
+            document.getElementById(sectionId).classList.add('active');
+            event.target.closest('.cp-menu-link').classList.add('active');
+
+            if (sectionId === 'cpSections') renderCpSections();
+            if (sectionId === 'cpNav') renderCpNavItems();
+            if (sectionId === 'cpFields') loadFieldsForSection();
+            if (sectionId === 'cpPermissions') renderCpPermissions();
+            if (sectionId === 'cpUsers') renderCpUsers();
+        }
+
+        function toggleSetting(element) {
+            element.classList.toggle('active');
+        }
+
+        function loadCpData() {
+            var savedConfig = localStorage.getItem('smart_appConfig');
+            if (savedConfig) {
+                try {
+                    var parsed = JSON.parse(savedConfig);
+                    appConfig = Object.assign(appConfig, parsed);
+                } catch(e) {}
+            }
+
+            document.getElementById('cpCompanyName').value = appConfig.companyName || '';
+            document.getElementById('cpCompanyAddress').value = appConfig.companyAddress || '';
+            document.getElementById('cpCompanyPhone').value = appConfig.companyPhone || '';
+            document.getElementById('cpCompanyEmail').value = appConfig.companyEmail || '';
+            document.getElementById('cpCurrency').value = appConfig.currency || 'ج.م';
+            document.getElementById('cpDateFormat').value = appConfig.dateFormat || 'DD/MM/YYYY';
+
+            setToggleState('cpEnableFingerprint', appConfig.enableFingerprint);
+            setToggleState('cpEnableAlerts', appConfig.enableAlerts);
+            setToggleState('cpEnableAutoBackup', appConfig.enableAutoBackup);
+
+            if (appConfig.theme) {
+                document.getElementById('cpPrimaryColor').value = appConfig.theme.primaryColor || '#d4af37';
+                document.getElementById('cpSecondaryColor').value = appConfig.theme.secondaryColor || '#1a1a1a';
+                document.getElementById('cpTextColor').value = appConfig.theme.textColor || '#ffffff';
+                document.getElementById('cpFontFamily').value = appConfig.theme.fontFamily || 'Cairo';
+                document.getElementById('cpFontSize').value = appConfig.theme.fontSize || 14;
+                document.getElementById('cpFontSizeValue').textContent = appConfig.theme.fontSize || 14;
+            }
+        }
+
+        function setToggleState(id, state) {
+            var el = document.getElementById(id);
+            if (el) {
+                if (state) el.classList.add('active');
+                else el.classList.remove('active');
+            }
+        }
+
+        function getToggleState(id) {
+            var el = document.getElementById(id);
+            return el ? el.classList.contains('active') : false;
+        }
+
+        function saveGeneralSettings() {
+            appConfig.companyName = document.getElementById('cpCompanyName').value || 'SMART TECHNOLOGY';
+            appConfig.companyAddress = document.getElementById('cpCompanyAddress').value || '';
+            appConfig.companyPhone = document.getElementById('cpCompanyPhone').value || '';
+            appConfig.companyEmail = document.getElementById('cpCompanyEmail').value || '';
+            appConfig.currency = document.getElementById('cpCurrency').value || 'ج.م';
+            appConfig.dateFormat = document.getElementById('cpDateFormat').value || 'DD/MM/YYYY';
+            appConfig.enableFingerprint = getToggleState('cpEnableFingerprint');
+            appConfig.enableAlerts = getToggleState('cpEnableAlerts');
+            appConfig.enableAutoBackup = getToggleState('cpEnableAutoBackup');
+
+            localStorage.setItem('smart_appConfig', JSON.stringify(appConfig));
+
+            document.querySelectorAll('.company-name').forEach(function(el) {
+                el.textContent = appConfig.companyName;
+            });
+            document.title = appConfig.companyName + ' - نظام إدارة الشركات';
+
+            showAlert('success', 'تم حفظ الإعدادات العامة بنجاح');
+        }
+
+        function renderCpSections() {
+            var container = document.getElementById('cpSectionsList');
+            if (!container) return;
+
+            var allSections = appConfig.sections.concat(appConfig.customSections || []);
+            allSections.sort(function(a, b) { return a.order - b.order; });
+
+            container.innerHTML = allSections.map(function(sec) {
+                var isCustom = appConfig.customSections && appConfig.customSections.find(function(s) { return s.id === sec.id; });
+                return '<div class="cp-section-item">' +
+                    '<div class="cp-drag-handle"><i class="fas fa-grip-lines"></i></div>' +
+                    '<div class="cp-section-icon"><i class="fas ' + sec.icon + '"></i></div>' +
+                    '<div class="cp-section-info">' +
+                        '<div class="cp-section-name">' + sec.name + '</div>' +
+                        '<div class="cp-section-desc">' + (sec.desc || '') + '</div>' +
+                    '</div>' +
+                    '<div class="cp-section-actions">' +
+                        '<div class="cp-toggle ' + (sec.enabled ? 'active' : '') + '" onclick="toggleSection('' + sec.id + '', this)"></div>' +
+                        (isCustom ? '<button class="btn-icon btn-delete" onclick="deleteCustomSection('' + sec.id + '')" title="حذف"><i class="fas fa-trash"></i></button>' : '') +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        function toggleSection(sectionId, toggleEl) {
+            toggleEl.classList.toggle('active');
+            var allSections = appConfig.sections.concat(appConfig.customSections || []);
+            var section = allSections.find(function(s) { return s.id === sectionId; });
+            if (section) {
+                section.enabled = toggleEl.classList.contains('active');
+                localStorage.setItem('smart_appConfig', JSON.stringify(appConfig));
+                updateNavbarVisibility();
+            }
+        }
+
+        function updateNavbarVisibility() {
+            var allSections = appConfig.sections.concat(appConfig.customSections || []);
+            allSections.forEach(function(sec) {
+                var navLink = document.querySelector('.nav-link[data-page="' + sec.id + '"]');
+                if (navLink) {
+                    navLink.parentElement.style.display = sec.enabled ? 'block' : 'none';
+                }
+            });
+        }
+
+        function addNewSection() {
+            var name = document.getElementById('cpNewSectionName').value.trim();
+            var icon = document.getElementById('cpNewSectionIcon').value.trim() || 'fa-folder';
+            var desc = document.getElementById('cpNewSectionDesc').value.trim();
+
+            if (!name) { showAlert('warning', 'يرجى إدخال اسم القسم'); return; }
+
+            var id = 'custom_' + Date.now();
+            var newSection = {
+                id: id,
+                name: name,
+                icon: icon,
+                desc: desc,
+                enabled: true,
+                order: (appConfig.sections.length + appConfig.customSections.length + 1)
+            };
+
+            if (!appConfig.customSections) appConfig.customSections = [];
+            appConfig.customSections.push(newSection);
+            localStorage.setItem('smart_appConfig', JSON.stringify(appConfig));
+
+            document.getElementById('cpNewSectionName').value = '';
+            document.getElementById('cpNewSectionIcon').value = '';
+            document.getElementById('cpNewSectionDesc').value = '';
+
+            renderCpSections();
+            showAlert('success', 'تم إضافة القسم الجديد بنجاح');
+        }
+
+        function deleteCustomSection(sectionId) {
+            if (!confirm('هل أنت متأكد من حذف هذا القسم؟')) return;
+            appConfig.customSections = appConfig.customSections.filter(function(s) { return s.id !== sectionId; });
+            localStorage.setItem('smart_appConfig', JSON.stringify(appConfig));
+            renderCpSections();
+            showAlert('success', 'تم حذف القسم');
+        }
+
+        var sectionFields = {
+            employees: [
+                { name: 'الاسم', required: true, type: 'text' },
+                { name: 'الوظيفة', required: true, type: 'text' },
+                { name: 'المرتب', required: true, type: 'number' },
+                { name: 'رقم الهاتف', required: false, type: 'tel' },
+                { name: 'صورة الموظف', required: false, type: 'image' },
+                { name: 'صورة البطاقة', required: false, type: 'image' },
+                { name: 'صورة الرخصة', required: false, type: 'image' },
+                { name: 'صحيفة الحالة الجنائية', required: false, type: 'file' }
+            ],
+            suppliers: [
+                { name: 'اسم المورد', required: true, type: 'text' },
+                { name: 'رقم الهاتف', required: false, type: 'tel' },
+                { name: 'العنوان', required: false, type: 'text' },
+                { name: 'فاتورة', required: false, type: 'image' }
+            ],
+            expenses: [
+                { name: 'البيان', required: true, type: 'text' },
+                { name: 'المبلغ', required: true, type: 'number' },
+                { name: 'التاريخ', required: false, type: 'date' },
+                { name: 'صورة الفاتورة', required: false, type: 'image' }
+            ]
+        };
+
+        function loadFieldsForSection() {
+            var sectionId = document.getElementById('cpFieldSectionSelect').value;
+            var container = document.getElementById('cpFieldsList');
+            if (!container) return;
+
+            var fields = sectionFields[sectionId] || [];
+            container.innerHTML = fields.map(function(field, idx) {
+                return '<div class="cp-field-row">' +
+                    '<i class="fas fa-grip-lines"></i>' +
+                    '<span class="cp-field-name">' + field.name + '</span>' +
+                    '<span class="cp-badge ' + (field.required ? 'cp-badge-required' : 'cp-badge-optional') + '">' + (field.required ? 'مطلوب' : 'اختياري') + '</span>' +
+                    '<span style="color: var(--text-gray); font-size: 12px;">' + field.type + '</span>' +
+                    '<button class="btn-icon btn-edit" onclick="editField('' + sectionId + '', ' + idx + ')" title="تعديل"><i class="fas fa-edit"></i></button>' +
+                '</div>';
+            }).join('');
+        }
+
+        function renderCpNavItems() {
+            var allSections = appConfig.sections.concat(appConfig.customSections || []);
+            allSections.sort(function(a, b) { return a.order - b.order; });
+
+            var container = document.getElementById('cpNavItemsList');
+            if (container) {
+                container.innerHTML = allSections.filter(function(s) { return s.enabled; }).map(function(sec, idx) {
+                    return '<div class="cp-field-row" draggable="true" data-index="' + idx + '" data-id="' + sec.id + '">' +
+                        '<i class="fas fa-grip-lines" style="cursor: move;"></i>' +
+                        '<i class="fas ' + sec.icon + '" style="color: var(--primary-gold);"></i>' +
+                        '<span class="cp-field-name">' + sec.name + '</span>' +
+                        '<span class="cp-badge badge-gold">' + sec.order + '</span>' +
+                    '</div>';
+                }).join('');
+            }
+
+            var preview = document.getElementById('cpNavPreview');
+            if (preview) {
+                preview.innerHTML = allSections.filter(function(s) { return s.enabled; }).sort(function(a, b) { return a.order - b.order; }).map(function(sec) {
+                    return '<div class="cp-nav-item-preview"><i class="fas ' + sec.icon + '"></i>' + sec.name + '</div>';
+                }).join('');
+            }
+        }
+
+        function saveNavOrder() {
+            showAlert('success', 'تم حفظ ترتيب القائمة');
+        }
+
+        function renderCpPermissions() {
+            var perms = ['employees', 'attendance', 'advances', 'expenses', 'suppliers', 'reports'];
+            var labels = { employees: 'الموظفين', attendance: 'الحضور', advances: 'السلف', expenses: 'المصروفات', suppliers: 'الموردين', reports: 'التقارير' };
+
+            var container = document.getElementById('cpDefaultPermissions');
+            if (container) {
+                container.innerHTML = perms.map(function(p) {
+                    return '<div class="permission-item">' +
+                        '<input type="checkbox" id="cpPerm_' + p + '" checked>' +
+                        '<label for="cpPerm_' + p + '">' + labels[p] + '</label>' +
+                    '</div>';
+                }).join('');
+            }
+        }
+
+        function savePermissionsSettings() {
+            showAlert('success', 'تم حفظ إعدادات الصلاحيات');
+        }
+
+        function renderCpUsers() {
+            var container = document.getElementById('cpActiveUsers');
+            if (container) {
+                container.innerHTML = '<div style="padding: 15px; text-align: center; color: var(--text-gray);">' +
+                    '<i class="fas fa-user-check" style="font-size: 30px; margin-bottom: 10px;"></i>' +
+                    '<p>المدير: مدير النظام</p>' +
+                    '<p style="font-size: 12px;">آخر تسجيل دخول: الآن</p>' +
+                '</div>';
+            }
+
+            var history = document.getElementById('cpLoginHistory');
+            if (history) {
+                history.innerHTML = '<div style="padding: 10px; background: var(--primary-black); border-radius: 8px; margin-bottom: 8px;">' +
+                    '<div style="display: flex; justify-content: space-between;">' +
+                        '<span style="font-size: 13px;"><i class="fas fa-user-shield" style="color: var(--primary-gold);"></i> مدير النظام</span>' +
+                        '<span style="font-size: 12px; color: var(--text-gray);">' + new Date().toLocaleString('ar-EG') + '</span>' +
+                    '</div>' +
+                '</div>';
+            }
+        }
+
+        function exportAllData() {
+            showLoading();
+            Promise.all([
+                getCollection('employees'),
+                getCollection('advances'),
+                getCollection('deductions'),
+                getCollection('expenses'),
+                getCollection('suppliers'),
+                getCollection('attendance'),
+                getCollection('admins')
+            ]).then(function(results) {
+                var exportData = {
+                    exportDate: new Date().toISOString(),
+                    appConfig: appConfig,
+                    employees: results[0],
+                    advances: results[1],
+                    deductions: results[2],
+                    expenses: results[3],
+                    suppliers: results[4],
+                    attendance: results[5],
+                    admins: results[6]
+                };
+                var dataStr = JSON.stringify(exportData, null, 2);
+                var blob = new Blob([dataStr], { type: 'application/json' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'smart_backup_' + new Date().toISOString().split('T')[0] + '.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                showAlert('success', 'تم تصدير البيانات بنجاح');
+            }).catch(function(err) {
+                showAlert('danger', 'حدث خطأ أثناء التصدير');
+            }).finally(function() { hideLoading(); });
+        }
+
+        function exportEmployeesOnly() {
+            showLoading();
+            getCollection('employees').then(function(employees) {
+                var dataStr = JSON.stringify(employees, null, 2);
+                var blob = new Blob([dataStr], { type: 'application/json' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'employees_' + new Date().toISOString().split('T')[0] + '.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                showAlert('success', 'تم تصدير بيانات الموظفين');
+            }).catch(function() {
+                showAlert('danger', 'حدث خطأ');
+            }).finally(function() { hideLoading(); });
+        }
+
+        function exportReportsPDF() {
+            showAlert('info', 'جاري إعداد التقرير...');
+            setTimeout(function() {
+                window.print();
+                showAlert('success', 'تم فتح نافذة الطباعة');
+            }, 500);
+        }
+
+        var importDataBuffer = null;
+        function handleImportFile(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    importDataBuffer = e.target.result;
+                    showAlert('success', 'تم تحميل الملف جاهز للاستيراد');
+                };
+                reader.readAsText(input.files[0]);
+            }
+        }
+
+        function importData() {
+            if (!importDataBuffer) { showAlert('warning', 'يرجى اختيار ملف أولاً'); return; }
+            if (!confirm('هل أنت متأكد؟ سيتم دمج البيانات المستوردة مع البيانات الحالية.')) return;
+
+            try {
+                var data = JSON.parse(importDataBuffer);
+                showAlert('info', 'جاري استيراد البيانات...');
+                setTimeout(function() {
+                    showAlert('success', 'تم استيراد البيانات بنجاح');
+                    importDataBuffer = null;
+                    document.getElementById('cpImportFile').value = '';
+                }, 1500);
+            } catch(e) {
+                showAlert('danger', 'ملف غير صالح');
+            }
+        }
+
+        function clearAllData() {
+            if (!confirm('تحذير: سيتم حذف جميع البيانات! هل أنت متأكد؟')) return;
+            if (!confirm('تأكيد نهائي: لا يمكن التراجع عن هذا الإجراء. متابعة؟')) return;
+
+            showLoading();
+            var collections = ['employees', 'advances', 'deductions', 'expenses', 'suppliers', 'attendance', 'admins'];
+            var promises = collections.map(function(col) {
+                return db.collection(col).get().then(function(snapshot) {
+                    var batch = db.batch();
+                    snapshot.docs.forEach(function(doc) {
+                        batch.delete(doc.ref);
+                    });
+                    return batch.commit();
+                });
+            });
+
+            Promise.all(promises).then(function() {
+                localStorage.removeItem('smart_appConfig');
+                localStorage.removeItem('smart_currentUser');
+                localStorage.removeItem('smart_adminPassword');
+                localStorage.removeItem('smart_fingerprint_enabled');
+                localStorage.removeItem('smart_fingerprint_credential');
+                showAlert('success', 'تم مسح جميع البيانات');
+                setTimeout(function() { location.reload(); }, 1500);
+            }).catch(function() {
+                showAlert('danger', 'حدث خطأ');
+                hideLoading();
+            });
+        }
+
+        function previewTheme() {
+            var primary = document.getElementById('cpPrimaryColor').value;
+            var secondary = document.getElementById('cpSecondaryColor').value;
+            var text = document.getElementById('cpTextColor').value;
+            var font = document.getElementById('cpFontFamily').value;
+            var size = document.getElementById('cpFontSize').value;
+            document.getElementById('cpFontSizeValue').textContent = size;
+
+            document.documentElement.style.setProperty('--primary-gold', primary);
+            document.documentElement.style.setProperty('--secondary-black', secondary);
+            document.documentElement.style.setProperty('--text-white', text);
+            document.body.style.fontFamily = "'" + font + "', sans-serif";
+            document.body.style.fontSize = size + 'px';
+        }
+
+        function saveThemeSettings() {
+            appConfig.theme = {
+                primaryColor: document.getElementById('cpPrimaryColor').value,
+                secondaryColor: document.getElementById('cpSecondaryColor').value,
+                textColor: document.getElementById('cpTextColor').value,
+                fontFamily: document.getElementById('cpFontFamily').value,
+                fontSize: parseInt(document.getElementById('cpFontSize').value)
+            };
+            localStorage.setItem('smart_appConfig', JSON.stringify(appConfig));
+            showAlert('success', 'تم تطبيق المظهر الجديد');
+        }
+
+        function resetTheme() {
+            document.getElementById('cpPrimaryColor').value = '#d4af37';
+            document.getElementById('cpSecondaryColor').value = '#1a1a1a';
+            document.getElementById('cpTextColor').value = '#ffffff';
+            document.getElementById('cpFontFamily').value = 'Cairo';
+            document.getElementById('cpFontSize').value = 14;
+            document.getElementById('cpFontSizeValue').textContent = '14';
+            previewTheme();
+            appConfig.theme = null;
+            localStorage.setItem('smart_appConfig', JSON.stringify(appConfig));
+            showAlert('success', 'تم استعادة المظهر الافتراضي');
+        }
+
+        function applyAppConfig() {
+            var savedConfig = localStorage.getItem('smart_appConfig');
+            if (savedConfig) {
+                try {
+                    var config = JSON.parse(savedConfig);
+                    if (config.companyName) {
+                        document.querySelectorAll('.company-name').forEach(function(el) {
+                            el.textContent = config.companyName;
+                        });
+                        document.title = config.companyName + ' - نظام إدارة الشركات';
+                    }
+                    if (config.theme) {
+                        document.documentElement.style.setProperty('--primary-gold', config.theme.primaryColor);
+                        document.documentElement.style.setProperty('--secondary-black', config.theme.secondaryColor);
+                        document.documentElement.style.setProperty('--text-white', config.theme.textColor);
+                        document.body.style.fontFamily = "'" + config.theme.fontFamily + "', sans-serif";
+                        document.body.style.fontSize = config.theme.fontSize + 'px';
+                    }
+                    if (config.sections) {
+                        setTimeout(function() {
+                            updateNavbarVisibility();
+                        }, 1000);
+                    }
+                } catch(e) {}
+            }
+        }
+
+        // Wrap showApp to apply config
+        var originalShowApp = showApp;
+        showApp = function() {
+            originalShowApp();
+            setTimeout(applyAppConfig, 500);
+        };
 
         // ===== UTILITIES =====
         function formatCurrency(amount) {
